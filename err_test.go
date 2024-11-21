@@ -14,7 +14,7 @@ import (
 func TestConvert(t *testing.T) {
 	req := require.New(t)
 
-	dummyErr := Wrap(errors.ErrUnsupported, codes.Unimplemented)
+	dummyErr := Wrap("", errors.ErrUnsupported, codes.Unimplemented)
 
 	req.Equal(codes.Unimplemented, status.Code(Convert(dummyErr)))
 
@@ -28,7 +28,7 @@ func TestConvert(t *testing.T) {
 func TestConvertWrappedError(t *testing.T) {
 	req := require.New(t)
 
-	dummyErr := serr.Wrap("wrapped", Wrap(errors.ErrUnsupported, codes.Unimplemented))
+	dummyErr := serr.Wrap("wrapped", Wrap("", errors.ErrUnsupported, codes.Unimplemented))
 
 	req.Equal(codes.Unimplemented, status.Code(Convert(dummyErr)))
 
@@ -42,7 +42,7 @@ func TestConvertWrappedError(t *testing.T) {
 func TestConvertWrappedErrors(t *testing.T) {
 	req := require.New(t)
 
-	dummyErr := errors.Join(errors.New("some error"), Wrap(errors.ErrUnsupported, codes.Unimplemented))
+	dummyErr := errors.Join(errors.New("some error"), Wrap("", errors.ErrUnsupported, codes.Unimplemented))
 
 	req.Equal(codes.Unimplemented, status.Code(Convert(dummyErr)))
 
