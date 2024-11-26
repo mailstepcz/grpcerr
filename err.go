@@ -3,7 +3,9 @@ package grpcerr
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
+	"github.com/mailstepcz/serr"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -21,12 +23,17 @@ type ConvertibleError struct {
 }
 
 // New creates a new error convertible into a gRPC error.
-func New(err string, code codes.Code) ConvertibleError {
-	return Wrap(errors.New(err), code)
+func New(err string, code codes.Code, attrs ...serr.Attributed) ConvertibleError {
+	return Wrap("", errors.New(err), code, attrs...)
 }
 
 // Wrap wraps an error into one convertible into a gRPC error.
-func Wrap(err error, code codes.Code) ConvertibleError {
+func Wrap(msg string, err error, code codes.Code, attrs ...serr.Attributed) ConvertibleError {
+	if len(attrs) > 0 {
+		err = serr.Wrap(msg, err, attrs...)
+	} else if msg != "" {
+		err = fmt.Errorf("%s: %w", msg, err)
+	}
 	return ConvertibleError{
 		err:  err,
 		code: code,
