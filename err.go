@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/mailstepcz/cache"
 	"github.com/mailstepcz/serr"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -69,7 +70,15 @@ func Convert(err error) error {
 	return status.Error(codes.Internal, err.Error())
 }
 
+var (
+	codeCache cache.Cache[error, codes.Code]
+)
+
 func getGRPCCode(err error) (codes.Code, bool) {
+	if c, ok := codeCache.Get(err); ok {
+		return *c, true
+	}
+
 	if err, ok := err.(Convertible); ok {
 		return err.GRPCErrorCode(), true
 	}
@@ -80,10 +89,10 @@ func getGRPCCode(err error) (codes.Code, bool) {
 
 	if err, ok := err.(wrappedErrs); ok {
 		errs := err.Unwrap()
-		codes := make([]codes.Code, 0, len(errs))
+		codes := make(map[codes.Code]struct{}, len(errs))
 		for _, err := range errs {
 			if c, ok := getGRPCCode(err); ok {
-				codes = append(codes, c)
+				codes[c] = struct{}{}
 			}
 		}
 		if len(codes) > 1 {
@@ -92,7 +101,10 @@ func getGRPCCode(err error) (codes.Code, bool) {
 		if len(codes) == 0 {
 			return 0, false
 		}
-		return codes[0], true
+		for c := range codes {
+			codeCache.Put(err, &c)
+			return c, true
+		}
 	}
 
 	return 0, false
