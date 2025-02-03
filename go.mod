@@ -1,8 +1,6 @@
 module github.com/mailstepcz/grpcerr
 
-go 1.22.7
-
-toolchain go1.23.3
+go 1.23
 
 require (
 	github.com/mailstepcz/serr v0.1.2
@@ -13,6 +11,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/mailstepcz/cache v0.0.0-20250203120809-e1c0a3a1b7bc // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
