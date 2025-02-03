@@ -80,10 +80,10 @@ func getGRPCCode(err error) (codes.Code, bool) {
 
 	if err, ok := err.(wrappedErrs); ok {
 		errs := err.Unwrap()
-		codes := make([]codes.Code, 0, len(errs))
+		codes := make(map[codes.Code]struct{}, len(errs))
 		for _, err := range errs {
 			if c, ok := getGRPCCode(err); ok {
-				codes = append(codes, c)
+				codes[c] = struct{}{}
 			}
 		}
 		if len(codes) > 1 {
@@ -92,7 +92,9 @@ func getGRPCCode(err error) (codes.Code, bool) {
 		if len(codes) == 0 {
 			return 0, false
 		}
-		return codes[0], true
+		for c := range codes {
+			return c, true
+		}
 	}
 
 	return 0, false
