@@ -71,7 +71,7 @@ func Convert(err error) error {
 }
 
 var (
-	codeCache cache.Cache[interface{}, codes.Code]
+	codeCache cache.Cache[error, codes.Code]
 )
 
 func getGRPCCode(err error) (codes.Code, bool) {
