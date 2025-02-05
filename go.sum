@@ -10,6 +10,8 @@ github.com/mailstepcz/cache v0.0.0-20250203120809-e1c0a3a1b7bc h1:eQq92okcSRTQXy
 github.com/mailstepcz/cache v0.0.0-20250203120809-e1c0a3a1b7bc/go.mod h1:ddxQtDltfIhnBOvSWTMJ9MrEXM24QLsvRDyDBJlAOGQ=
 github.com/mailstepcz/cache v0.0.0-20250203151726-d228c9779fec h1:mXmUm3TgZAQqPHEaTWVhDH+HXOTqgVDXMGFFk6pBl/8=
 github.com/mailstepcz/cache v0.0.0-20250203151726-d228c9779fec/go.mod h1:ddxQtDltfIhnBOvSWTMJ9MrEXM24QLsvRDyDBJlAOGQ=
+github.com/mailstepcz/cache v0.0.0-20250204231828-907c98fc60cc h1:Ko6GdVI6Q/biRh0aH6yx9lGu/IGAs6fZvJOSNc1VWx8=
+github.com/mailstepcz/cache v0.0.0-20250204231828-907c98fc60cc/go.mod h1:ddxQtDltfIhnBOvSWTMJ9MrEXM24QLsvRDyDBJlAOGQ=
 github.com/mailstepcz/serr v0.1.0 h1:gTWgrvS6HddpliRDdEvulDNObuMxSefk9CGNL3uhgYU=
 github.com/mailstepcz/serr v0.1.0/go.mod h1:kcN5rQz02kpW3sl0Je2AHbfmWvQq6jHz/Oegm3Lr/gQ=
 github.com/mailstepcz/serr v0.1.2 h1:MSUU0czwEe198B1nIPebIDhwsFI9RKBj55YPvqJ37Yw=

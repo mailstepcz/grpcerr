@@ -56,23 +56,28 @@ func (err ConvertibleError) GRPCErrorCode() codes.Code {
 
 var _ Convertible = ConvertibleError{}
 
+var (
+	errorCache cache.Cache[error, error]
+	codeCache  cache.Cache[error, codes.Code]
+)
+
 // Convert converts the error into a gRPC error.
 func Convert(err error) error {
+	if err, ok := errorCache.Get(err); ok {
+		return *err
+	}
+
 	if c, ok := getGRPCCode(err); ok {
-		return status.Error(c, err.Error())
+		return errorCache.PutValue(err, status.Error(c, err.Error()))
 	}
 
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		return status.Error(codes.NotFound, err.Error())
+		return errorCache.PutValue(err, status.Error(codes.NotFound, err.Error()))
 	}
 
-	return status.Error(codes.Internal, err.Error())
+	return errorCache.PutValue(err, status.Error(codes.Internal, err.Error()))
 }
-
-var (
-	codeCache cache.Cache[error, codes.Code]
-)
 
 func getGRPCCode(err error) (codes.Code, bool) {
 	if c, ok := codeCache.Get(err); ok {
@@ -102,8 +107,7 @@ func getGRPCCode(err error) (codes.Code, bool) {
 			return 0, false
 		}
 		for c := range codes {
-			codeCache.Put(err, &c)
-			return c, true
+			return codeCache.PutValue(err, c), true
 		}
 	}
 
