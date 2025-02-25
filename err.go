@@ -63,9 +63,9 @@ var (
 
 // Convert converts the error into a gRPC error.
 func Convert(err error) error {
-	if err, ok := errorCache.Get(err); ok {
-		return *err
-	}
+	// if err, ok := errorCache.Get(err); ok {
+	// 	return *err
+	// }
 
 	if c, ok := getGRPCCode(err); ok {
 		return errorCache.PutValue(err, status.Error(c, err.Error()))
