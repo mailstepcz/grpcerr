@@ -1,6 +1,7 @@
 package grpcerr
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -74,6 +75,8 @@ func Convert(err error) error {
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return errorCache.PutValue(err, status.Error(codes.NotFound, err.Error()))
+	case errors.Is(err, context.Canceled):
+		return errorCache.PutValue(err, status.Error(codes.Canceled, err.Error()))
 	}
 
 	return errorCache.PutValue(err, status.Error(codes.Internal, err.Error()))

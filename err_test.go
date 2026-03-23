@@ -1,6 +1,7 @@
 package grpcerr
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -23,6 +24,8 @@ func TestConvert(t *testing.T) {
 	req.True(errors.Is(dummyErr, errors.ErrUnsupported))
 
 	req.Equal(codes.NotFound, status.Code(Convert(sql.ErrNoRows)))
+
+	req.Equal(codes.Canceled.String(), status.Code(Convert(context.Canceled)).String())
 }
 
 func TestConvertWrappedError(t *testing.T) {
