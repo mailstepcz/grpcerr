@@ -58,29 +58,53 @@ func (err ConvertibleError) GRPCErrorCode() codes.Code {
 var _ Convertible = ConvertibleError{}
 
 var (
-	errorCache cache.Cache[error, error]
-	codeCache  cache.Cache[error, codes.Code]
+	codeCache cache.Cache[error, codes.Code]
 )
 
 // Convert converts the error into a gRPC error.
+//
+// If err (or anything in its chain) carries a serr.UserMessager user-friendly
+// message, that message is used as the gRPC status message — the technical
+// chain stays available via the returned error's OriginalError() for logging
+// and Sentry. Without a user message, the message is err.Error() — identical
+// to legacy behavior.
 func Convert(err error) error {
-	// if err, ok := errorCache.Get(err); ok {
-	// 	return *err
-	// }
+	msg := serr.ExtractUserMessage(err)
+	if len(msg) == 0 {
+		msg = err.Error()
+	}
 
 	if c, ok := getGRPCCode(err); ok {
-		return errorCache.PutValue(err, status.Error(c, err.Error()))
+		return &convertedError{grpcErr: status.Error(c, msg), original: err}
 	}
 
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		return errorCache.PutValue(err, status.Error(codes.NotFound, err.Error()))
+		return &convertedError{grpcErr: status.Error(codes.NotFound, msg), original: err}
 	case errors.Is(err, context.Canceled):
-		return errorCache.PutValue(err, status.Error(codes.Canceled, err.Error()))
+		return &convertedError{grpcErr: status.Error(codes.Canceled, msg), original: err}
 	}
 
-	return errorCache.PutValue(err, status.Error(codes.Internal, err.Error()))
+	return &convertedError{grpcErr: status.Error(codes.Internal, msg), original: err}
 }
+
+// convertedError is returned by Convert. Its GRPCStatus() drives wire serialization
+// (gRPC server framework prefers it over Error()), so the status message that
+// reaches the client is the sanitized user message. Unwrap() returns the original
+// rich error chain so errors.Is/As work, and OriginalError() exposes it explicitly
+// for interceptors that want to log the technical chain instead of the user message.
+type convertedError struct {
+	grpcErr  error
+	original error
+}
+
+func (e *convertedError) Error() string              { return e.grpcErr.Error() }
+func (e *convertedError) Unwrap() error              { return e.original }
+func (e *convertedError) GRPCStatus() *status.Status { s, _ := status.FromError(e.grpcErr); return s }
+
+// OriginalError returns the original (rich) error passed to Convert, with its
+// full chain preserved - for use in logging and observability.
+func (e *convertedError) OriginalError() error { return e.original }
 
 func getGRPCCode(err error) (codes.Code, bool) {
 	if c, ok := codeCache.Get(err); ok {
