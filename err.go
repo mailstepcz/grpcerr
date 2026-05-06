@@ -88,6 +88,22 @@ func Convert(err error) error {
 	return &convertedError{grpcErr: status.Error(codes.Internal, msg), original: err}
 }
 
+// OriginalErrorer is implemented by errors returned from Convert. It exposes
+// the original rich error chain.
+type OriginalErrorer interface {
+	OriginalError() error
+}
+
+// Original returns err's original error chain if err (or anything in its chain)
+// implements OriginalErrorer; otherwise it returns err unchanged.
+func Original(err error) error {
+	var oe OriginalErrorer
+	if errors.As(err, &oe) {
+		return oe.OriginalError()
+	}
+	return err
+}
+
 // convertedError is returned by Convert. Its GRPCStatus() drives wire serialization
 // (gRPC server framework prefers it over Error()), so the status message that
 // reaches the client is the sanitized user message. Unwrap() returns the original
@@ -150,3 +166,5 @@ type wrappedErrs interface {
 	error
 	Unwrap() []error
 }
+
+var _ OriginalErrorer = new(convertedError)

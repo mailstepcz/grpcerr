@@ -20,7 +20,8 @@ go get github.com/mailstepcz/grpcerr
 - The wire-level status message is the user-friendly message extracted via
   `serr.ExtractUserMessage` when present, otherwise `err.Error()`.
 - The original (rich) error chain is preserved — `errors.Is`/`errors.As` keep
-  working, and `OriginalError()` exposes it for logging.
+  working, and `Original` (or the `OriginalErrorer` interface) exposes it for
+  logging.
 - `sql.ErrNoRows` maps to `codes.NotFound` and `context.Canceled` maps to
   `codes.Canceled` automatically. Anything else without a code falls back to
   `codes.Internal`.
@@ -70,17 +71,18 @@ domain := serr.WithUserMessage(
 )
 
 // Client sees status code NotFound with message "Order not found."
-// Logs/Sentry can still inspect the full chain via OriginalError().
+// Logs/Sentry can still inspect the full chain via grpcerr.Original.
 return nil, grpcerr.Convert(domain)
 ```
 
 ### Accessing the original error in interceptors
 
 ```go
-if oe, ok := err.(interface{ OriginalError() error }); ok {
-    log.Error("rpc failed", "err", oe.OriginalError())
-}
+log.Error("rpc failed", "err", grpcerr.Original(err))
 ```
+
+`Original` returns the rich pre-conversion chain when `err` (or anything in its
+chain) implements `OriginalErrorer`; otherwise it returns `err` unchanged.
 
 ## API
 
@@ -91,6 +93,10 @@ if oe, ok := err.(interface{ OriginalError() error }); ok {
 - `Convertible` — interface for any error that can report its own
   `GRPCErrorCode()`. Wrapped errors (`Unwrap() error` and `Unwrap() []error`)
   are traversed automatically.
+- `OriginalErrorer` — interface implemented by errors returned from `Convert`,
+  exposing the original (pre-conversion) chain via `OriginalError() error`.
+- `Original(err error) error` — returns `err`'s original chain if available,
+  otherwise returns `err` unchanged.
 
 ## Code resolution
 
