@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/mailstepcz/cache"
 	"github.com/mailstepcz/serr"
+	"github.com/maypok86/otter/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -58,7 +59,10 @@ func (err ConvertibleError) GRPCErrorCode() codes.Code {
 var _ Convertible = ConvertibleError{}
 
 var (
-	codeCache cache.Cache[error, codes.Code]
+	codeCache = otter.Must(&otter.Options[error, codes.Code]{
+		MaximumSize:      5_000,
+		ExpiryCalculator: otter.ExpiryWriting[error, codes.Code](30 * time.Minute),
+	})
 )
 
 // Convert converts the error into a gRPC error.
@@ -123,8 +127,8 @@ func (e *convertedError) GRPCStatus() *status.Status { s, _ := status.FromError(
 func (e *convertedError) OriginalError() error { return e.original }
 
 func getGRPCCode(err error) (codes.Code, bool) {
-	if c, ok := codeCache.Get(err); ok {
-		return *c, true
+	if c, ok := codeCache.GetIfPresent(err); ok {
+		return c, true
 	}
 
 	if err, ok := err.(Convertible); ok {
@@ -150,7 +154,9 @@ func getGRPCCode(err error) (codes.Code, bool) {
 			return 0, false
 		}
 		for c := range codes {
-			return codeCache.PutValue(err, c), true
+			// set value for future calls
+			codeCache.Set(err, c)
+			return c, true
 		}
 	}
 
