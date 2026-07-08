@@ -4,6 +4,7 @@ go 1.26.2
 
 require (
 	github.com/mailstepcz/serr v0.1.8
+	github.com/maypok86/otter/v2 v2.3.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.81.0
 )
@@ -16,7 +17,6 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0
-	github.com/mailstepcz/cache v0.1.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260504160031-60b97b32f348 // indirect
