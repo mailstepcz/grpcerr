@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mailstepcz/serr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -189,5 +191,146 @@ func TestOriginal(t *testing.T) {
 		outerErr := serr.Wrap("outer", convertedErr)
 
 		req.Equal(domainErr, Original(outerErr)) // should be 'getting entity'
+	})
+}
+
+func TestIsCanceled(t *testing.T) {
+	tcs := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "nil",
+			err:  nil,
+			want: false,
+		},
+		{
+			name: "unrelated error",
+			err:  errors.New("boom"),
+			want: false,
+		},
+		{
+			name: "plain context.Canceled",
+			err:  context.Canceled,
+			want: true,
+		},
+		{
+			name: "serr-wrapped context.Canceled",
+			err:  serr.Wrap("loading entity", context.Canceled),
+			want: true,
+		},
+		{
+			name: "gRPC status carrying codes.Canceled",
+			err:  status.Error(codes.Canceled, "context canceled"),
+			want: true,
+		},
+		{
+			name: "serr-wrapped gRPC status carrying codes.Canceled",
+			err:  serr.Wrap("getting users by ids", status.Error(codes.Canceled, "context canceled")),
+			want: true,
+		},
+		{
+			name: "converted error is inspected through its original chain",
+			err:  Convert(serr.Wrap("getting users by ids", status.Error(codes.Canceled, "context canceled"))),
+			want: true,
+		},
+		{
+			name: "postgres query_canceled SQLSTATE",
+			err:  serr.Wrap("listing timelogs", &pgconn.PgError{Code: pgerrcode.QueryCanceled}),
+			want: true,
+		},
+		{
+			name: "postgres error with another SQLSTATE",
+			err:  serr.Wrap("listing timelogs", &pgconn.PgError{Code: pgerrcode.DeadlockDetected}),
+			want: false,
+		},
+		{
+			name: "explicitly tagged codes.Canceled",
+			err:  Wrap("", errors.New("caller went away"), codes.Canceled),
+			want: true,
+		},
+		{
+			name: "explicit code wins over a cancelled cause",
+			err:  Wrap("", status.Error(codes.Canceled, "context canceled"), codes.Internal),
+			want: false,
+		},
+		{
+			name: "context.DeadlineExceeded is not a cancellation",
+			err:  context.DeadlineExceeded,
+			want: false,
+		},
+		{
+			name: "gRPC status carrying codes.DeadlineExceeded is not a cancellation",
+			err:  status.Error(codes.DeadlineExceeded, "context deadline exceeded"),
+			want: false,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, IsCanceled(tc.err))
+		})
+	}
+}
+
+// TestIsCanceledCoversWhatErrorsIsMisses documents the cancellation forms that a plain
+// errors.Is(err, context.Canceled) check does not catch.
+func TestIsCanceledCoversWhatErrorsIsMisses(t *testing.T) {
+	tcs := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "gRPC status carrying codes.Canceled",
+			err:  status.Error(codes.Canceled, "context canceled"),
+		},
+		{
+			name: "postgres query_canceled SQLSTATE",
+			err:  &pgconn.PgError{Code: pgerrcode.QueryCanceled},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			req := require.New(t)
+
+			req.False(errors.Is(tc.err, context.Canceled))
+			req.True(IsCanceled(tc.err))
+		})
+	}
+}
+
+func TestConvertCanceled(t *testing.T) {
+	t.Run("downstream gRPC Canceled no longer becomes Internal", func(t *testing.T) {
+		req := require.New(t)
+
+		// the production shape: a cancelled call to another service, wrapped by the
+		// service layer and given a user message before reaching the handler
+		serviceErr := serr.WithUserMessage(
+			serr.Wrap("enriching ranked users with details",
+				serr.Wrap("getting users details from user service",
+					status.Error(codes.Canceled, "context canceled"))),
+			"Unable to load productivity ranking.",
+		)
+
+		s, ok := status.FromError(Convert(serviceErr))
+		req.True(ok)
+		req.Equal(codes.Canceled, s.Code())
+		req.Equal("Unable to load productivity ranking.", s.Message())
+	})
+
+	t.Run("postgres query_canceled maps to codes.Canceled", func(t *testing.T) {
+		req := require.New(t)
+
+		serviceErr := serr.Wrap("listing timelogs", &pgconn.PgError{Code: pgerrcode.QueryCanceled})
+
+		req.Equal(codes.Canceled, status.Code(Convert(serviceErr)))
+	})
+
+	t.Run("an unrelated failure still maps to codes.Internal", func(t *testing.T) {
+		req := require.New(t)
+
+		req.Equal(codes.Internal, status.Code(Convert(serr.Wrap("listing timelogs", errors.New("boom")))))
 	})
 }
