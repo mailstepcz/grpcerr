@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/mailstepcz/serr"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
