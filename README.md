@@ -22,9 +22,9 @@ go get github.com/mailstepcz/grpcerr
 - The original (rich) error chain is preserved — `errors.Is`/`errors.As` keep
   working, and `Original` (or the `OriginalErrorer` interface) exposes it for
   logging.
-- `sql.ErrNoRows` maps to `codes.NotFound` and any form of caller cancellation
-  maps to `codes.Canceled` automatically. Anything else without a code falls
-  back to `codes.Internal`.
+- `sql.ErrNoRows` maps to `codes.NotFound` and `context.Canceled` maps to
+  `codes.Canceled` automatically. Anything else without a code falls back to
+  `codes.Internal`.
 
 ## Usage
 
@@ -97,8 +97,6 @@ chain) implements `OriginalErrorer`; otherwise it returns `err` unchanged.
   exposing the original (pre-conversion) chain via `OriginalError() error`.
 - `Original(err error) error` — returns `err`'s original chain if available,
   otherwise returns `err` unchanged.
-- `IsCanceled(err error) bool` — reports whether `err` is, or wraps, a
-  cancellation caused by the caller going away.
 
 ## Code resolution
 
@@ -107,41 +105,12 @@ chain) implements `OriginalErrorer`; otherwise it returns `err` unchanged.
 1. `Convertible.GRPCErrorCode()` on the error or anywhere in its `Unwrap`
    chain (single or joined).
 2. `errors.Is(err, sql.ErrNoRows)` → `codes.NotFound`.
-3. `IsCanceled(err)` → `codes.Canceled`.
+3. `serr.IsCanceled(err)` → `codes.Canceled`. This covers more than
+   `errors.Is(err, context.Canceled)` does — most importantly a downstream gRPC
+   status carrying `codes.Canceled`, which never unwraps to `context.Canceled`,
+   and a Postgres statement cancelled at the client's request. See the `serr`
+   README for the full list.
 4. Fallback → `codes.Internal`.
 
 Joined errors must not provide more than one distinct gRPC code; doing so
 panics.
-
-## Detecting cancellation
-
-A cancelled caller does not reach the service as one single error type, so
-`errors.Is(err, context.Canceled)` alone misses most of the real cases.
-`IsCanceled` recognises all of them:
-
-| Boundary | Error returned | `errors.Is(err, context.Canceled)` |
-| --- | --- | --- |
-| outbound gRPC call | `*status.Error` with `codes.Canceled` | **false** |
-| Postgres, server cancels the statement | SQLSTATE `57014` (`query_canceled`) | **false** |
-| Postgres, driver aborts first | `context.Canceled` | true |
-| HTTP client | `*url.Error` | true |
-| AWS SDK / smithy | `*smithy.OperationError` | true |
-
-A gRPC status is the trap: grpc-go gives `*status.Error` its own `Is` that only
-matches another status, so a `codes.Canceled` status never unwraps to
-`context.Canceled`.
-
-An explicitly tagged code always wins — `Wrap("", err, codes.Internal)` stays
-`Internal` even if its cause was cancelled. `IsCanceled` inspects
-`Original(err)`, so it also works on an error already returned from `Convert`.
-
-```go
-// in a Sentry or logging interceptor: a cancelled caller is not a failure
-if grpcerr.IsCanceled(err) {
-    logger.WarnContext(ctx, "call cancelled by caller", slog.String("error", err.Error()))
-    return
-}
-```
-
-`context.DeadlineExceeded` is deliberately **not** treated as a cancellation — a
-timeout is a real signal worth reporting.

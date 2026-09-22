@@ -1,14 +1,11 @@
 package grpcerr
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mailstepcz/serr"
 	"github.com/maypok86/otter/v2"
 	"google.golang.org/grpc/codes"
@@ -87,41 +84,11 @@ func Convert(err error) error {
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return &convertedError{grpcErr: status.Error(codes.NotFound, msg), original: err}
-	case IsCanceled(err):
+	case serr.IsCanceled(err):
 		return &convertedError{grpcErr: status.Error(codes.Canceled, msg), original: err}
 	}
 
 	return &convertedError{grpcErr: status.Error(codes.Internal, msg), original: err}
-}
-
-// IsCanceled reports whether err is, or wraps, a cancellation caused by the caller going away.
-//
-// Covers context.Canceled, a gRPC status carrying codes.Canceled (which never unwraps to
-// context.Canceled), and the Postgres query_canceled SQLSTATE.
-func IsCanceled(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// an explicitly tagged code wins, exactly as it does in Convert
-	original := Original(err)
-	if c, ok := getGRPCCode(original); ok {
-		return c == codes.Canceled
-	}
-
-	if errors.Is(original, context.Canceled) {
-		return true
-	}
-
-	if s, ok := status.FromError(original); ok && s.Code() == codes.Canceled {
-		return true
-	}
-
-	if pgErr, ok := errors.AsType[*pgconn.PgError](original); ok && pgErr.Code == pgerrcode.QueryCanceled {
-		return true
-	}
-
-	return false
 }
 
 // OriginalErrorer is implemented by errors returned from Convert. It exposes
