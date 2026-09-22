@@ -10,9 +10,13 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.22.x, 1.23.x]
+        go-version: [1.26.x, 1.27.x]
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # without this the matrix is a lie: Go would fetch the toolchain named in go.mod
+      # and every job would run that same version instead of the one it claims to test
+      GOTOOLCHAIN: local
     steps:
       - name: Set up Go
         uses: actions/setup-go@v3
