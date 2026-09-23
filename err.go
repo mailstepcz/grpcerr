@@ -1,7 +1,6 @@
 package grpcerr
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -85,7 +84,7 @@ func Convert(err error) error {
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return &convertedError{grpcErr: status.Error(codes.NotFound, msg), original: err}
-	case errors.Is(err, context.Canceled):
+	case serr.IsCanceled(err):
 		return &convertedError{grpcErr: status.Error(codes.Canceled, msg), original: err}
 	}
 

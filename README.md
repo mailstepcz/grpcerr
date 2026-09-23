@@ -105,7 +105,11 @@ chain) implements `OriginalErrorer`; otherwise it returns `err` unchanged.
 1. `Convertible.GRPCErrorCode()` on the error or anywhere in its `Unwrap`
    chain (single or joined).
 2. `errors.Is(err, sql.ErrNoRows)` → `codes.NotFound`.
-3. `errors.Is(err, context.Canceled)` → `codes.Canceled`.
+3. `serr.IsCanceled(err)` → `codes.Canceled`. This covers more than
+   `errors.Is(err, context.Canceled)` does — most importantly a downstream gRPC
+   status carrying `codes.Canceled`, which never unwraps to `context.Canceled`,
+   and a Postgres statement cancelled at the client's request. See the `serr`
+   README for the full list.
 4. Fallback → `codes.Internal`.
 
 Joined errors must not provide more than one distinct gRPC code; doing so

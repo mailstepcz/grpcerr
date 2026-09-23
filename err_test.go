@@ -191,3 +191,37 @@ func TestOriginal(t *testing.T) {
 		req.Equal(domainErr, Original(outerErr)) // should be 'getting entity'
 	})
 }
+
+func TestConvertCanceled(t *testing.T) {
+	t.Run("downstream gRPC Canceled no longer becomes Internal", func(t *testing.T) {
+		req := require.New(t)
+
+		// the production shape: a cancelled call to another service, wrapped by the
+		// service layer and given a user message before reaching the handler
+		serviceErr := serr.WithUserMessage(
+			serr.Wrap("enriching ranked users with details",
+				serr.Wrap("getting users details from user service",
+					status.Error(codes.Canceled, "context canceled"))),
+			"Unable to load productivity ranking.",
+		)
+
+		s, ok := status.FromError(Convert(serviceErr))
+		req.True(ok)
+		req.Equal(codes.Canceled, s.Code())
+		req.Equal("Unable to load productivity ranking.", s.Message())
+	})
+
+	t.Run("an explicitly tagged code still wins over a cancelled cause", func(t *testing.T) {
+		req := require.New(t)
+
+		domainErr := Wrap("", status.Error(codes.Canceled, "context canceled"), codes.Internal)
+
+		req.Equal(codes.Internal, status.Code(Convert(domainErr)))
+	})
+
+	t.Run("an unrelated failure still maps to codes.Internal", func(t *testing.T) {
+		req := require.New(t)
+
+		req.Equal(codes.Internal, status.Code(Convert(serr.Wrap("listing timelogs", errors.New("boom")))))
+	})
+}
