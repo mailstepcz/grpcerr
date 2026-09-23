@@ -4,7 +4,7 @@ go 1.27.1
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/mailstepcz/serr v0.1.10-0.20260922142037-423ebd44e966
+	github.com/mailstepcz/serr v0.1.10
 	github.com/maypok86/otter/v2 v2.3.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.81.0
